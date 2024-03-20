@@ -4,8 +4,8 @@
  */
 
 
-// Include Arduino FreeRTOS library
-#include <Arduino_FreeRTOS.h>
+#include <Arduino.h>
+#include <Adafruit_TinyUSB.h> // for Serial
 
 // Include semaphore supoport
 #include <semphr.h>
@@ -18,8 +18,17 @@ SemaphoreHandle_t interruptSemaphore;
 
 void setup() {
 
-  // Configure pin 2 as an input and enable the internal pull-up resistor
-  pinMode(2, INPUT_PULLUP);
+    Serial.begin(115200);
+
+    // Wait for a serial port connection to be established before continuing.
+    // Don't want to miss any debug messages.
+    while ( !Serial ) delay(10);   // for nrf52840 with native usb
+
+    Serial.println("STARTING THE APPLICATION.");
+
+
+  // Configure pin 4 as an input and enable the internal pull-up resistor
+  pinMode(4, INPUT_PULLUP);
 
  // Create task for Arduino led 
   xTaskCreate(TaskLed, // Task function
@@ -36,13 +45,39 @@ void setup() {
   interruptSemaphore = xSemaphoreCreateBinary();
   if (interruptSemaphore != NULL) {
     // Attach interrupt for Arduino digital pin
-    attachInterrupt(digitalPinToInterrupt(2), interruptHandler, LOW);
+    attachInterrupt(digitalPinToInterrupt(4), interruptHandler, CHANGE);
   }
 
   
 }
 
-void loop() {}
+void loop() {
+
+    static bool firstTime = true;
+    static int previousDigitalReadValue = -1;
+
+    if ( firstTime ) {
+        Serial.println("Starting loop....");
+        delay(1000);
+
+        firstTime = false;
+    }
+
+    int digitalReadValue = digitalRead (4);
+
+    if (digitalReadValue != previousDigitalReadValue) {
+        if (digitalReadValue == HIGH) {
+            Serial.println("HIGH");
+        }
+        else {
+            Serial.println("LOW");
+        }
+
+        previousDigitalReadValue = digitalReadValue;
+    }
+
+    delay(1000);
+}
 
 
 void interruptHandler() {
@@ -64,6 +99,10 @@ void TaskLed(void *pvParameters)
 
   pinMode(LED_BUILTIN, OUTPUT);
 
+    Serial.print("Starting task ");
+    Serial.println(pcTaskGetName(NULL)); // Get task name
+    delay(1000);
+
   for (;;) {
     
     /**
@@ -71,6 +110,7 @@ void TaskLed(void *pvParameters)
      * https://www.freertos.org/a00122.html
      */
     if (xSemaphoreTake(interruptSemaphore, portMAX_DELAY) == pdPASS) {
+      Serial.println("Semaphore interrupt occurred.");
       digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     }
     vTaskDelay(10);
