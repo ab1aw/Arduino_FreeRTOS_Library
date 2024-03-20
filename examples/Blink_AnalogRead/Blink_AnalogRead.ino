@@ -1,4 +1,5 @@
-#include <Arduino_FreeRTOS.h>
+#include <Arduino.h>
+#include <Adafruit_TinyUSB.h> // for Serial
 
 // define two tasks for Blink & AnalogRead
 void TaskBlink( void *pvParameters );
@@ -6,13 +7,17 @@ void TaskAnalogRead( void *pvParameters );
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-  
-  // initialize serial communication at 9600 bits per second:
-  Serial.begin(9600);
-  
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB, on LEONARDO, MICRO, YUN, and other 32u4 based boards.
-  }
+
+    Serial.begin(115200);
+
+    // Wait for a serial port connection to be established before continuing.
+    // Don't want to miss any debug messages.
+    while ( !Serial ) delay(10);   // for nrf52840 with native usb
+
+    Serial.println("STARTING THE APPLICATION.");
+
+  // Configure pin 2 as an input and enable the internal pull-up resistor.
+  pinMode(4, INPUT_PULLUP);
 
   // Now set up two tasks to run independently.
   xTaskCreate(
@@ -34,9 +39,32 @@ void setup() {
   // Now the task scheduler, which takes over control of scheduling individual tasks, is automatically started.
 }
 
-void loop()
-{
-  // Empty. Things are done in Tasks.
+void loop() {
+
+    static bool firstTime = true;
+    static int previousDigitalReadValue = -1;
+
+    if ( firstTime ) {
+        Serial.println("Starting loop....");
+        delay(1000);
+
+        firstTime = false;
+    }
+
+    int digitalReadValue = digitalRead (4);
+
+    if (digitalReadValue != previousDigitalReadValue) {
+        if (digitalReadValue == HIGH) {
+            Serial.println("HIGH");
+        }
+        else {
+            Serial.println("LOW");
+        }
+
+        previousDigitalReadValue = digitalReadValue;
+    }
+
+    delay(1000);
 }
 
 /*--------------------------------------------------*/
@@ -71,15 +99,18 @@ void TaskBlink(void *pvParameters)  // This is a task.
   by Arturo Guadalupi
 */
 
+    Serial.print("Starting task ");
+    Serial.println(pcTaskGetName(NULL)); // Get task name
+
   // initialize digital LED_BUILTIN on pin 13 as an output.
   pinMode(LED_BUILTIN, OUTPUT);
 
   for (;;) // A Task shall never return or exit.
   {
     digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+    vTaskDelay( 1000 / (1 + portTICK_PERIOD_MS) ); // wait for one second
     digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+    vTaskDelay( 1000 / (1 + portTICK_PERIOD_MS) ); // wait for one second
   }
 }
 
@@ -95,6 +126,9 @@ void TaskAnalogRead(void *pvParameters)  // This is a task.
 
   This example code is in the public domain.
 */
+
+    Serial.print("Starting task ");
+    Serial.println(pcTaskGetName(NULL)); // Get task name
 
   for (;;)
   {
