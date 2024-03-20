@@ -1,4 +1,5 @@
-#include <Arduino_FreeRTOS.h>
+#include <Arduino.h>
+#include <Adafruit_TinyUSB.h> // for Serial
 
 //define task handles
 TaskHandle_t TaskBlink_Handler;
@@ -10,12 +11,13 @@ void TaskSerial(void* pvParameters);
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-  // initialize serial communication at 9600 bits per second:
-  Serial.begin(9600);
-  
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB, on LEONARDO, MICRO, YUN, and other 32u4 based boards.
-  }
+   Serial.begin(115200);
+
+    // Wait for a serial port connection to be established before continuing.
+    // Don't want to miss any debug messages.
+    while ( !Serial ) delay(10);   // for nrf52840 with native usb
+
+    Serial.println("STARTING THE APPLICATION.");
   
   // Now set up two tasks to run independently.
    xTaskCreate(
@@ -76,10 +78,11 @@ void TaskBlink(void *pvParameters)  // This is a task.
   pinMode(LED_BUILTIN, OUTPUT);
   for (;;) // A Task shall never return or exit.
   {
-    //Serial.println(11);
+    Serial.println("LED on.");
     digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+    vTaskDelay( 1000 / (1 + portTICK_PERIOD_MS) ); // wait for one second
+    Serial.println("LED off.");
     digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-    vTaskDelay( 1000 / portTICK_PERIOD_MS ); // wait for one second
+    vTaskDelay( 1000 / (1 + portTICK_PERIOD_MS) ); // wait for one second
   }
 }
