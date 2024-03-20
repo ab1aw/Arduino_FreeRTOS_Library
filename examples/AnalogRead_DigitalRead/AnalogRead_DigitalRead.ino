@@ -1,4 +1,6 @@
-#include <Arduino_FreeRTOS.h>
+#include <Arduino.h>
+#include <Adafruit_TinyUSB.h> // for Serial
+
 #include <semphr.h>  // add the FreeRTOS functions for Semaphores (or Flags).
 
 // Declare a mutex Semaphore Handle which we will use to manage the Serial Port.
@@ -12,12 +14,13 @@ void TaskAnalogRead( void *pvParameters );
 // the setup function runs once when you press reset or power the board
 void setup() {
 
-  // initialize serial communication at 9600 bits per second:
-  Serial.begin(9600);
-  
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB, on LEONARDO, MICRO, YUN, and other 32u4 based boards.
-  }
+    Serial.begin(115200);
+
+    // Wait for a serial port connection to be established before continuing.
+    // Don't want to miss any debug messages.
+    while ( !Serial ) delay(10);   // for nrf52840 with native usb
+
+    Serial.println("STARTING THE APPLICATION.");
 
   // Semaphores are useful to stop a Task proceeding, where it should be paused to wait,
   // because it is sharing a resource, such as the Serial port.
@@ -49,9 +52,32 @@ void setup() {
   // Now the Task scheduler, which takes over control of scheduling individual Tasks, is automatically started.
 }
 
-void loop()
-{
-  // Empty. Things are done in Tasks.
+void loop() {
+
+    static bool firstTime = true;
+    static int previousDigitalReadValue = -1;
+
+    if ( firstTime ) {
+        Serial.println("Starting loop....");
+        delay(1000);
+
+        firstTime = false;
+    }
+
+    int digitalReadValue = digitalRead (4);
+
+    if (digitalReadValue != previousDigitalReadValue) {
+        if (digitalReadValue == HIGH) {
+            Serial.println("HIGH");
+        }
+        else {
+            Serial.println("LOW");
+        }
+
+        previousDigitalReadValue = digitalReadValue;
+    }
+
+    delay(1000);
 }
 
 /*--------------------------------------------------*/
@@ -67,11 +93,15 @@ void TaskDigitalRead( void *pvParameters __attribute__((unused)) )  // This is a
     This example code is in the public domain.
   */
 
-  // digital pin 2 has a pushbutton attached to it. Give it a name:
-  uint8_t pushButton = 2;
+  // digital pin 4 has a pushbutton attached to it. Give it a name:
+  uint8_t pushButton = 4;
+
+    Serial.print("Starting task ");
+    Serial.println(pcTaskGetName(NULL)); // Get task name
 
   // make the pushbutton's pin an input:
-  pinMode(pushButton, INPUT);
+  // Configure pin 4 as an input and enable the internal pull-up resistor.
+  pinMode(pushButton, INPUT_PULLUP);
 
   for (;;) // A Task shall never return or exit.
   {
@@ -97,6 +127,8 @@ void TaskDigitalRead( void *pvParameters __attribute__((unused)) )  // This is a
 
 void TaskAnalogRead( void *pvParameters __attribute__((unused)) )  // This is a Task.
 {
+    Serial.print("Starting task ");
+    Serial.println(pcTaskGetName(NULL)); // Get task name
 
   for (;;)
   {
