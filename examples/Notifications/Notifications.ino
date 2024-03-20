@@ -3,8 +3,8 @@
    https://www.freertos.org/RTOS_Task_Notification_As_Binary_Semaphore.html
 */
 
-// Include Arduino FreeRTOS library
-#include <Arduino_FreeRTOS.h>
+#include <Arduino.h>
+#include <Adafruit_TinyUSB.h> // for Serial
 
 /**
    Declaring a global TaskHandle for the led task.
@@ -13,8 +13,17 @@ TaskHandle_t taskNotificationHandler;
 
 void setup() {
 
+    Serial.begin(115200);
+
+    // Wait for a serial port connection to be established before continuing.
+    // Don't want to miss any debug messages.
+    while ( !Serial ) delay(10);   // for nrf52840 with native usb
+
+    Serial.println("STARTING THE APPLICATION.");
+
+
   // Configure pin 2 as an input and enable the internal pull-up resistor.
-  pinMode(2, INPUT_PULLUP);
+  pinMode(4, INPUT_PULLUP);
 
   // Create task for FreeRTOS notification
   xTaskCreate(TaskNotification, // Task function
@@ -27,6 +36,30 @@ void setup() {
 
 void loop() {
 
+    static bool firstTime = true;
+    static int previousDigitalReadValue = -1;
+
+    if ( firstTime ) {
+        Serial.println("Starting loop....");
+        delay(1000);
+
+        firstTime = false;
+    }
+
+    int digitalReadValue = digitalRead (4);
+
+    if (digitalReadValue != previousDigitalReadValue) {
+        if (digitalReadValue == HIGH) {
+            Serial.println("HIGH");
+        }
+        else {
+            Serial.println("LOW");
+        }
+
+        previousDigitalReadValue = digitalReadValue;
+    }
+
+    delay(1000);
 }
 
 /*
@@ -36,11 +69,17 @@ void TaskNotification(void *pvParameters)
 {
   (void) pvParameters;
 
-  int digitalPin = 2;
+  int digitalPin = 4;
 
-  Serial.begin(9600);
 
-  attachInterrupt(digitalPinToInterrupt(digitalPin), digitalPinInterruptHandler, LOW);
+  int rv = attachInterrupt(digitalPinToInterrupt(digitalPin), digitalPinInterruptHandler, CHANGE);
+
+    Serial.print("Starting task ");
+    Serial.print(pcTaskGetName(NULL)); // Get task name
+    Serial.print(" with rv =  ");
+    Serial.println(rv);
+    delay(1000);
+
 
   for (;;) {
 
@@ -53,9 +92,11 @@ void TaskNotification(void *pvParameters)
 
 
 void digitalPinInterruptHandler() {
+  Serial.println("digitalPinInterruptHandler()");
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
   vTaskNotifyGiveFromISR(taskNotificationHandler, &xHigherPriorityTaskWoken);
   if (xHigherPriorityTaskWoken) {
+    Serial.println("Calling taskYIELD()");
     taskYIELD();
   }
 }
