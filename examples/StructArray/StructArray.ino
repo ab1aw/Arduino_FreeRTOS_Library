@@ -3,8 +3,8 @@
  * https://www.freertos.org/Embedded-RTOS-Queues.html
  */
 
-// Include Arduino FreeRTOS library
-#include <Arduino_FreeRTOS.h>
+#include <Arduino.h>
+#include <Adafruit_TinyUSB.h> // for Serial
 
 // Include queue support
 #include <queue.h>
@@ -27,6 +27,18 @@ void TaskSerial(void *pvParameters);
 QueueHandle_t structArrayQueue;
 
 void setup() {
+
+    Serial.begin(115200);
+
+    // Wait for a serial port connection to be established before continuing.
+    // Don't want to miss any debug messages.
+    while ( !Serial ) delay(10);   // for nrf52840 with native usb
+
+    Serial.println("STARTING THE APPLICATION.");
+
+
+  // Configure pin 4 as an input and enable the internal pull-up resistor.
+  pinMode(4, INPUT_PULLUP);
 
   /**
    * Create a queue.
@@ -63,7 +75,33 @@ if(structArrayQueue!=NULL){
 }
 }
 
-void loop() {}
+void loop() {
+
+    static bool firstTime = true;
+    static int previousDigitalReadValue = -1;
+
+    if ( firstTime ) {
+        Serial.println("Starting loop....");
+        delay(1000);
+
+        firstTime = false;
+    }
+
+    int digitalReadValue = digitalRead (4);
+
+    if (digitalReadValue != previousDigitalReadValue) {
+        if (digitalReadValue == HIGH) {
+            Serial.println("HIGH");
+        }
+        else {
+            Serial.println("LOW");
+        }
+
+        previousDigitalReadValue = digitalReadValue;
+    }
+
+    delay(1000);
+}
 
 /* 
  * Blink task. 
@@ -71,17 +109,20 @@ void loop() {}
  */
 void TaskBlink(void *pvParameters){
   (void) pvParameters;
+
+    Serial.print("Starting task ");
+    Serial.println(pcTaskGetName(NULL)); // Get task name
   
-  pinMode(13,OUTPUT);
+  pinMode(LED_BUILTIN,OUTPUT);
   
-  digitalWrite(13,LOW);
+  digitalWrite(LED_BUILTIN,LOW);
   
   for(;;)
   {
-    digitalWrite(13,HIGH);
-    vTaskDelay(250/portTICK_PERIOD_MS);
-    digitalWrite(13,LOW);
-    vTaskDelay(250/portTICK_PERIOD_MS);
+    digitalWrite(LED_BUILTIN,HIGH);
+    vTaskDelay(250/(1 + portTICK_PERIOD_MS));
+    digitalWrite(LED_BUILTIN,LOW);
+    vTaskDelay(250/(1 + portTICK_PERIOD_MS));
   }
 }
 
@@ -93,6 +134,10 @@ void TaskBlink(void *pvParameters){
  */
 void POT(void *pvParameters){
   (void) pvParameters;
+
+    Serial.print("Starting task ");
+    Serial.println(pcTaskGetName(NULL)); // Get task name
+
   pinMode(A0,INPUT);
   pinMode(A1,INPUT);
   for (;;){
@@ -121,13 +166,8 @@ void POT(void *pvParameters){
 void TaskSerial(void *pvParameters){
   (void) pvParameters;
 
-  // Init Arduino serial
-  Serial.begin(9600);
-
-  // Wait for serial port to connect. Needed for native USB, on LEONARDO, MICRO, YUN, and other 32u4 based boards.
-  while (!Serial) {
-    vTaskDelay(1);
-  }
+    Serial.print("Starting task ");
+    Serial.println(pcTaskGetName(NULL)); // Get task name
   
   for (;;){
     
@@ -145,6 +185,6 @@ void TaskSerial(void *pvParameters){
       Serial.println(currentVariable.ReadValue[i]);
       }
     }
-    vTaskDelay(500/portTICK_PERIOD_MS);
+    vTaskDelay(500/(1 + portTICK_PERIOD_MS));
   }
 }
